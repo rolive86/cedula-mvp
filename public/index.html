@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Acredita Diligenciamiento</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink:      #0f0e0c;
+    --paper:    #f5f2eb;
+    --cream:    #ede9df;
+    --rule:     #c8bfaa;
+    --accent:   #1a3a5c;
+    --gold:     #b8860b;
+    --success:  #1a4a2e;
+    --error:    #5c1a1a;
+    --mono:     'IBM Plex Mono', monospace;
+    --serif:    'Playfair Display', Georgia, serif;
+    --sans:     'IBM Plex Sans', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-weight: 300;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Noise texture overlay ── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── Header ── */
+  header {
+    border-bottom: 1px solid var(--rule);
+    padding: 20px 40px;
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    position: relative;
+    z-index: 1;
+  }
+
+  header .sigla {
+    font-family: var(--serif);
+    font-size: 22px;
+    color: var(--accent);
+    letter-spacing: -0.5px;
+  }
+
+  header .divider {
+    width: 1px;
+    height: 16px;
+    background: var(--rule);
+    display: inline-block;
+    vertical-align: middle;
+  }
+
+  header .subtitle {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--rule);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  /* ── Main layout ── */
+  main {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .card {
+    width: 100%;
+    max-width: 560px;
+  }
+
+  /* ── Heading block ── */
+  .heading-block {
+    margin-bottom: 48px;
+  }
+
+  .heading-block .eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 12px;
+  }
+
+  .heading-block h1 {
+    font-family: var(--serif);
+    font-size: clamp(28px, 5vw, 40px);
+    font-weight: 600;
+    line-height: 1.1;
+    color: var(--accent);
+    margin-bottom: 16px;
+  }
+
+  .heading-block p {
+    font-size: 14px;
+    line-height: 1.7;
+    color: #5a5650;
+    max-width: 440px;
+  }
+
+  /* ── Upload zone ── */
+  .upload-zone {
+    border: 1.5px dashed var(--rule);
+    border-radius: 2px;
+    padding: 48px 32px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: transparent;
+    position: relative;
+    margin-bottom: 24px;
+  }
+
+  .upload-zone:hover,
+  .upload-zone.drag-over {
+    border-color: var(--accent);
+    background: rgba(26, 58, 92, 0.03);
+  }
+
+  .upload-zone input[type="file"] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    width: 100%;
+    height: 100%;
+  }
+
+  .upload-icon {
+    width: 40px;
+    height: 40px;
+    margin: 0 auto 16px;
+    color: var(--rule);
+  }
+
+  .upload-zone .upload-label {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+    font-weight: 500;
+  }
+
+  .upload-zone .upload-hint {
+    font-size: 12px;
+    color: #9a9287;
+  }
+
+  .upload-zone .file-selected {
+    display: none;
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--success);
+    align-items: center;
+    gap: 8px;
+    justify-content: center;
+  }
+
+  .upload-zone.has-file .file-selected { display: flex; }
+  .upload-zone.has-file .upload-default { display: none; }
+
+  /* ── Button ── */
+  .btn-procesar {
+    width: 100%;
+    padding: 16px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 2px;
+    font-family: var(--mono);
+    font-size: 13px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    font-weight: 500;
+  }
+
+  .btn-procesar:hover:not(:disabled) {
+    background: #122a42;
+  }
+
+  .btn-procesar:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  /* ── Status panels ── */
+  .status {
+    display: none;
+    margin-top: 24px;
+    padding: 20px 24px;
+    border-radius: 2px;
+    font-size: 13px;
+    line-height: 1.6;
+    border-left: 3px solid;
+  }
+
+  .status.loading {
+    display: block;
+    background: rgba(26, 58, 92, 0.05);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .status.success {
+    display: block;
+    background: rgba(26, 74, 46, 0.05);
+    border-color: var(--success);
+    color: var(--success);
+  }
+
+  .status.error {
+    display: block;
+    background: rgba(92, 26, 26, 0.05);
+    border-color: var(--error);
+    color: var(--error);
+  }
+
+  .status-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    opacity: 0.6;
+    margin-bottom: 6px;
+  }
+
+  .status-text { font-weight: 400; }
+
+  .data-grid {
+    display: grid;
+    grid-template-columns: 120px 1fr;
+    gap: 8px 16px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(26, 74, 46, 0.15);
+  }
+
+  .data-grid .dk {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    opacity: 0.5;
+    padding-top: 2px;
+  }
+
+  .data-grid .dv {
+    font-family: var(--mono);
+    font-size: 12px;
+    word-break: break-word;
+  }
+
+  /* ── Download button ── */
+  .btn-download {
+    display: none;
+    width: 100%;
+    margin-top: 12px;
+    padding: 14px;
+    background: var(--success);
+    color: #fff;
+    border: none;
+    border-radius: 2px;
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    text-decoration: none;
+    font-weight: 500;
+    transition: background 0.2s;
+  }
+
+  .btn-download:hover { background: #123520; }
+  .btn-download.visible { display: flex; }
+
+  /* ── Loading spinner ── */
+  .spinner {
+    width: 16px; height: 16px;
+    border: 2px solid rgba(26,58,92,0.2);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    flex-shrink: 0;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .loading-steps {
+    margin-top: 10px;
+    font-size: 12px;
+    opacity: 0.7;
+  }
+
+  .loading-steps span {
+    display: inline-block;
+    opacity: 0;
+    animation: fadeStep 0.4s forwards;
+  }
+
+  @keyframes fadeStep { to { opacity: 1; } }
+
+  /* ── Footer ── */
+  footer {
+    padding: 20px 40px;
+    border-top: 1px solid var(--rule);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: relative;
+    z-index: 1;
+  }
+
+  footer .f-left {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--rule);
+    letter-spacing: 0.05em;
+  }
+
+  footer .f-right {
+    font-size: 11px;
+    color: var(--rule);
+  }
+
+  /* ── Horizontal rule decoration ── */
+  .h-rule {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 40px 0;
+    color: var(--rule);
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .h-rule::before, .h-rule::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--rule);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="sigla">Poder Judicial</span>
+  <span class="divider"></span>
+  <span class="subtitle">Acredita Diligenciamiento · Sistema automático</span>
+</header>
+
+<main>
+  <div class="card">
+
+    <div class="heading-block">
+      <div class="eyebrow">Herramienta procesal</div>
+      <h1>Acredita<br>Diligenciamiento</h1>
+      <p>Subí la cédula escaneada. El sistema extrae automáticamente el número de expediente y la carátula, y genera el escrito listo para presentar.</p>
+    </div>
+
+    <form id="form">
+
+      <div class="upload-zone" id="dropZone">
+        <input type="file" id="fileInput" accept=".pdf,application/pdf">
+
+        <div class="upload-default">
+          <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="12" y1="18" x2="12" y2="12"/>
+            <polyline points="9 15 12 12 15 15"/>
+          </svg>
+          <div class="upload-label">Seleccionar cédula PDF</div>
+          <div class="upload-hint">o arrastrá el archivo aquí · máx. 20 MB</div>
+        </div>
+
+        <div class="file-selected">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          <span id="fileName">archivo.pdf</span>
+        </div>
+      </div>
+
+      <button type="submit" class="btn-procesar" id="btnProcesar" disabled>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polygon points="5 3 19 12 5 21 5 3"/>
+        </svg>
+        Procesar cédula
+      </button>
+
+    </form>
+
+    <!-- Loading -->
+    <div class="status loading" id="statusLoading">
+      <div class="status-label">Procesando</div>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <div class="spinner"></div>
+        <div class="status-text" id="loadingText">Analizando el PDF…</div>
+      </div>
+      <div class="loading-steps" id="loadingSteps"></div>
+    </div>
+
+    <!-- Error -->
+    <div class="status error" id="statusError">
+      <div class="status-label">Error</div>
+      <div class="status-text" id="errorText"></div>
+    </div>
+
+    <!-- Success -->
+    <div class="status success" id="statusSuccess">
+      <div class="status-label">Datos extraídos</div>
+      <div class="status-text">Escrito generado correctamente.</div>
+      <div class="data-grid">
+        <span class="dk">Exp. Nro.</span>
+        <span class="dv" id="resExpNro">—</span>
+        <span class="dk">Carátula</span>
+        <span class="dv" id="resCaratula">—</span>
+      </div>
+    </div>
+
+    <a class="btn-download" id="btnDownload" href="#" download="acredita_diligenciamiento.pdf">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="7 10 12 15 17 10"/>
+        <line x1="12" y1="15" x2="12" y2="3"/>
+      </svg>
+      Descargar PDF
+    </a>
+
+  </div>
+</main>
+
+<footer>
+  <span class="f-left">MVP v1.0 · Uso interno</span>
+  <span class="f-right">Gustavo Federico Hisi · T°110 F°492 C.P.A.C.F</span>
+</footer>
+
+<script>
+const form        = document.getElementById('form');
+const fileInput   = document.getElementById('fileInput');
+const dropZone    = document.getElementById('dropZone');
+const btnProcesar = document.getElementById('btnProcesar');
+const btnDownload = document.getElementById('btnDownload');
+const fileName    = document.getElementById('fileName');
+
+const stLoading   = document.getElementById('statusLoading');
+const stError     = document.getElementById('statusError');
+const stSuccess   = document.getElementById('statusSuccess');
+const loadingText = document.getElementById('loadingText');
+const loadingSteps= document.getElementById('loadingSteps');
+const errorText   = document.getElementById('errorText');
+const resExpNro   = document.getElementById('resExpNro');
+const resCaratula = document.getElementById('resCaratula');
+
+// ── File selection ───────────────────────────
+function setFile(file) {
+  if (!file || file.type !== 'application/pdf') {
+    alert('Por favor seleccioná un archivo PDF.');
+    return;
+  }
+  dropZone.classList.add('has-file');
+  fileName.textContent = file.name;
+  btnProcesar.disabled = false;
+  hideAll();
+  btnDownload.classList.remove('visible');
+}
+
+fileInput.addEventListener('change', () => setFile(fileInput.files[0]));
+
+// Drag & drop
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) { fileInput.files = e.dataTransfer.files; setFile(file); }
+});
+
+// ── Helpers ──────────────────────────────────
+function hideAll() {
+  stLoading.style.display = 'none';
+  stError.style.display   = 'none';
+  stSuccess.style.display = 'none';
+}
+
+// Mensajes de progreso animados
+const STEPS = [
+  [800,  'Aplicando OCR a la cédula…'],
+  [5000, 'Extrayendo número de expediente…'],
+  [9000, 'Detectando carátula…'],
+  [13000,'Generando escrito Word…'],
+  [17000,'Convirtiendo a PDF…'],
+];
+let stepTimers = [];
+
+function startSteps() {
+  loadingSteps.innerHTML = '';
+  stepTimers.forEach(clearTimeout);
+  stepTimers = STEPS.map(([delay, msg]) =>
+    setTimeout(() => {
+      const sp = document.createElement('span');
+      sp.textContent = '· ' + msg + ' ';
+      sp.style.animationDelay = '0s';
+      loadingSteps.innerHTML = '';
+      loadingSteps.appendChild(sp);
+    }, delay)
+  );
+}
+
+function clearSteps() {
+  stepTimers.forEach(clearTimeout);
+  stepTimers = [];
+  loadingSteps.innerHTML = '';
+}
+
+// ── Submit ───────────────────────────────────
+form.addEventListener('submit', async e => {
+  e.preventDefault();
+  const file = fileInput.files[0];
+  if (!file) return;
+
+  hideAll();
+  btnDownload.classList.remove('visible');
+  btnProcesar.disabled = true;
+  stLoading.style.display = 'block';
+  loadingText.textContent = 'Enviando archivo…';
+  startSteps();
+
+  const fd = new FormData();
+  fd.append('pdf', file);
+
+  try {
+    const res = await fetch('/procesar', { method: 'POST', body: fd });
+
+    clearSteps();
+    hideAll();
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({ error: 'Error desconocido.' }));
+      stError.style.display = 'block';
+      errorText.textContent = data.error || `Error ${res.status}`;
+      return;
+    }
+
+    // Leer headers con los datos extraídos
+    const expNro   = res.headers.get('X-Exp-Nro') || '—';
+    const caratula = decodeURIComponent(res.headers.get('X-Caratula') || '—');
+
+    // Crear blob para descarga
+    const blob = await res.blob();
+    const url  = URL.createObjectURL(blob);
+
+    resExpNro.textContent   = expNro;
+    resCaratula.textContent = caratula;
+    stSuccess.style.display = 'block';
+
+    btnDownload.href = url;
+    btnDownload.classList.add('visible');
+
+  } catch (err) {
+    clearSteps();
+    hideAll();
+    stError.style.display = 'block';
+    errorText.textContent = 'Error de conexión: ' + err.message;
+  } finally {
+    btnProcesar.disabled = false;
+  }
+});
+</script>
+</body>
+</html>
