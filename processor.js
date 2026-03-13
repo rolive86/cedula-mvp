@@ -33,7 +33,7 @@ async function extraerTextoPDF(pdfPath) {
 // 2. Parsear EXP NRO y carátula
 // ─────────────────────────────────────────────
 function extraerDatosCedula(texto) {
-  const expMatch = texto.match(/(\d{6}\/\d{4})/);
+  const expMatch = texto.match(/(\d{4,6}\/\d{4})/);
   const expNro   = expMatch ? expMatch[1] : null;
 
   let caratula = null;
