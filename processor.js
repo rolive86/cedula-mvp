@@ -33,17 +33,33 @@ async function extraerTextoPDF(pdfPath) {
 // 2. Parsear EXP NRO y carátula
 // ─────────────────────────────────────────────
 function extraerDatosCedula(texto) {
+  // EXP NRO: 4 a 6 dígitos / 4 dígitos año
   const expMatch = texto.match(/(\d{4,6}\/\d{4})/);
   const expNro   = expMatch ? expMatch[1] : null;
 
   let caratula = null;
-  // Anchored: comillas tipográficas U+201C/U+201D después de "caratulado:"
-  const m1 = texto.match(/caratulado:\s*\u201c([\s\S]+?)\u201d\s*que se tramita/);
-  if (m1) caratula = m1[1].replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
-  // Fallback: comillas rectas
+
+  // Patrón A: formato estándar "caratulado: «...» que se tramita"
+  const mA = texto.match(/caratulado:\s*\u201c([\s\S]+?)\u201d\s*que se tramita/);
+  if (mA) caratula = mA[1].replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
+
+  // Patrón B: comillas rectas
   if (!caratula) {
-    const m2 = texto.match(/caratulado:\s*"([\s\S]+?)"\s*que se tramita/);
-    if (m2) caratula = m2[1].replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
+    const mB = texto.match(/caratulado:\s*"([\s\S]+?)"\s*que se tramita/);
+    if (mB) caratula = mB[1].replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
+  }
+
+  // Patrón C: carátula en negrita al inicio sin frase introductoria
+  // "NOTIF. NEGATIVA\nFRANZESE, ..." → hasta comilla de cierre U+201D
+  if (!caratula) {
+    const mC = texto.match(/NOTIF[.\s]+NEGATIVA\s*\n([\s\S]+?)\u201d\s*que se tramita/);
+    if (mC) caratula = mC[1].replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
+  }
+
+  // Patrón D: igual pero con comilla recta de cierre
+  if (!caratula) {
+    const mD = texto.match(/NOTIF[.\s]+NEGATIVA\s*\n([\s\S]+?)"\s*que se tramita/);
+    if (mD) caratula = mD[1].replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
   }
 
   return { expNro, caratula };
@@ -53,8 +69,8 @@ function extraerDatosCedula(texto) {
 // 3. Generar DOCX reemplazando marcador en XML
 // ─────────────────────────────────────────────
 async function generarDocx(templatePath, insercion, outputPath) {
-  const tmpDir    = fs.mkdtempSync(path.join(os.tmpdir(), 'docx-'));
-  const unzipDir  = path.join(tmpDir, 'u');
+  const tmpDir   = fs.mkdtempSync(path.join(os.tmpdir(), 'docx-'));
+  const unzipDir = path.join(tmpDir, 'u');
   fs.mkdirSync(unzipDir);
   try {
     execSync(`cd "${unzipDir}" && unzip -q "${path.resolve(templatePath)}"`);
@@ -80,38 +96,50 @@ function convertirDocxAPdf(docxPath, outputDir) {
     `libreoffice --headless --convert-to pdf --outdir "${outputDir}" "${docxPath}"`,
     { env: { ...process.env, HOME: os.tmpdir() } }
   );
-  const base   = path.basename(docxPath, '.docx');
-  const pdfOut = path.join(outputDir, `${base}.pdf`);
+  const pdfOut = path.join(outputDir, path.basename(docxPath, '.docx') + '.pdf');
   if (!fs.existsSync(pdfOut)) throw new Error('LibreOffice no generó el PDF.');
   return pdfOut;
+}
+
+// ─────────────────────────────────────────────
+// 5. Unir dos PDFs con pdfunite (poppler)
+// ─────────────────────────────────────────────
+function unirPDFs(pdf1, pdf2, outputPath) {
+  execSync(`pdfunite "${pdf1}" "${pdf2}" "${outputPath}"`);
+  if (!fs.existsSync(outputPath)) throw new Error('No se pudo unir los PDFs.');
+  return outputPath;
 }
 
 // ─────────────────────────────────────────────
 // PIPELINE COMPLETO
 // ─────────────────────────────────────────────
 async function procesarCedula(pdfPath, workDir, templatePath) {
-  // OCR
+  // 1. OCR
   const texto = await extraerTextoPDF(pdfPath);
   const { expNro, caratula } = extraerDatosCedula(texto);
 
   if (!expNro || !caratula) {
     throw new Error(
-      `No se pudieron extraer los datos del PDF.\n` +
-      `EXP NRO: ${expNro || 'no encontrado'}\n` +
+      `No se pudieron extraer los datos del PDF. ` +
+      `EXP NRO: ${expNro || 'no encontrado'} ` +
       `Carátula: ${caratula || 'no encontrada'}`
     );
   }
 
   const insercion = `${expNro} ${caratula}`;
 
-  // Generar DOCX
+  // 2. Generar DOCX con datos insertados
   const docxPath = path.join(workDir, 'acredita.docx');
   await generarDocx(templatePath, insercion, docxPath);
 
-  // Convertir a PDF
-  const pdfResultPath = convertirDocxAPdf(docxPath, workDir);
+  // 3. Convertir DOCX → PDF (la nota)
+  const notaPdfPath = convertirDocxAPdf(docxPath, workDir);
 
-  return { expNro, caratula, pdfPath: pdfResultPath };
+  // 4. Unir: nota + cédula original
+  const pdfFinalPath = path.join(workDir, 'acredita_final.pdf');
+  unirPDFs(notaPdfPath, pdfPath, pdfFinalPath);
+
+  return { expNro, caratula, pdfPath: pdfFinalPath };
 }
 
 module.exports = { procesarCedula };
