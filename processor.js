@@ -21,12 +21,16 @@ async function extraerTextoPDF(pdfPath) {
     execSync(`pdftoppm -r 300 -png "${pdfPath}" "${path.join(tmpDir, 'p')}"`);
     // Solo procesar la primera página — el EXP NRO siempre está ahí
     const imgs = fs.readdirSync(tmpDir).filter(f => f.endsWith('.png')).sort()
-                   .map(f => path.join(tmpDir, f))
-                   .slice(0, 1); // solo primera página
-    const textos = await Promise.all(
-      imgs.map(img => tesseract.recognize(img, { lang: 'spa', oem: 1, psm: 6 }))
-    );
-    return textos.join('\n');
+                   .map(f => path.join(tmpDir, f));
+
+    // Procesar página por página hasta encontrar el EXP NRO
+    let textoAcumulado = '';
+    for (const img of imgs) {
+      const textoPagina = await tesseract.recognize(img, { lang: 'spa', oem: 1, psm: 6 });
+      textoAcumulado += textoPagina + '\n';
+      if (extraerExpNro(textoAcumulado)) break;
+    }
+    return textoAcumulado;
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
