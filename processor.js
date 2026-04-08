@@ -160,8 +160,17 @@ async function procesarCedula(pdfPath, workDir, templatePath) {
   console.log(`[processor] EXP NRO extraído: ${expNro}`);
 
   // 3. Buscar carátula en pjn_favoritos
+  // Intentar con el número tal cual, y también con cero adelante (ej: 23812 → 023812)
   let caratula = null;
-  const favorito = await buscarEnFavoritos(numero, anio);
+  let favorito = await buscarEnFavoritos(numero, anio);
+  if (!favorito) {
+    // Probar con cero adelante
+    favorito = await buscarEnFavoritos('0' + numero, anio);
+  }
+  if (!favorito) {
+    // Probar sin ceros adelante (por si el OCR agregó uno)
+    favorito = await buscarEnFavoritos(numero.replace(/^0+/, ''), anio);
+  }
 
   if (favorito?.caratula) {
     caratula = favorito.caratula;
