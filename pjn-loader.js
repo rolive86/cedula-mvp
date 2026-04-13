@@ -1,6 +1,9 @@
 'use strict';
 
 const { chromium } = require('playwright');
+const path = require('path');
+const os = require('os');
+const fs = require('fs');
 
 const SSO_URL =
   'https://sso.pjn.gov.ar/auth/realms/pjn/protocol/openid-connect/auth' +
@@ -8,7 +11,29 @@ const SSO_URL =
   '&redirect_uri=https%3A%2F%2Fportalpjn.pjn.gov.ar%2Fauth%2Fcallback' +
   '&response_type=code&scope=openid';
 
-async function cargarEnPjn({ pdfPath, expNro, jurisdiccion, pdfNombre, cedulaId }) {
+async function descargarPdf(url, destPath) {
+  const https = require('https');
+  const http = require('http');
+  const fs = require('fs');
+  const client = url.startsWith('https') ? https : http;
+
+  return new Promise((resolve, reject) => {
+    const file = fs.createWriteStream(destPath);
+    client.get(url, (res) => {
+      if (res.statusCode !== 200) {
+        reject(new Error('Error descargando PDF: HTTP ' + res.statusCode));
+        return;
+      }
+      res.pipe(file);
+      file.on('finish', () => { file.close(); resolve(destPath); });
+    }).on('error', (err) => {
+      fs.unlink(destPath, () => {});
+      reject(err);
+    });
+  });
+}
+
+async function cargarEnPjn({ pdfPath, pdfUrl, expNro, jurisdiccion, pdfNombre, cedulaId }) {
   const usuario  = process.env.PJN_USUARIO;
   const password = process.env.PJN_PASSWORD;
 
@@ -18,6 +43,16 @@ async function cargarEnPjn({ pdfPath, expNro, jurisdiccion, pdfNombre, cedulaId 
 
   const [numero, anio] = (expNro || '').split('/');
   if (!numero || !anio) throw new Error('expNro inválido: ' + expNro);
+
+  const pdfTempPath = path.join(os.tmpdir(), `cedula-${Date.now()}.pdf`);
+  let pdfFinalPath = pdfPath;
+
+  if (pdfUrl) {
+    await descargarPdf(pdfUrl, pdfTempPath);
+    pdfFinalPath = pdfTempPath;
+  } else if (!pdfPath) {
+    throw new Error('Se requiere pdfUrl o pdfPath');
+  }
 
   const browser = await chromium.launch({
     headless: true,
@@ -82,7 +117,7 @@ async function cargarEnPjn({ pdfPath, expNro, jurisdiccion, pdfNombre, cedulaId 
       popup.waitForEvent('filechooser'),
       popup.getByRole('button', { name: 'Seleccionar' }).click(),
     ]);
-    await fileChooser.setFiles(pdfPath);
+    await fileChooser.setFiles(pdfFinalPath);
 
     // Descripción
     await popup.waitForSelector('[role="dialog"] input[type="text"]', { timeout: 8000 });
@@ -114,6 +149,9 @@ async function cargarEnPjn({ pdfPath, expNro, jurisdiccion, pdfNombre, cedulaId 
     console.error('[PJN] Error en carga:', err.message);
     throw err;
   } finally {
+    if (pdfUrl) {
+      try { fs.unlinkSync(pdfTempPath); } catch (_) {}
+    }
     await browser.close();
   }
 }

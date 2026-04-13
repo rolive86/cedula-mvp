@@ -55,12 +55,12 @@ app.post('/procesar', upload.single('pdf'), async (req, res) => {
 const { cargarEnPjn } = require('./pjn-loader');
 
 app.post('/cargar-pjn', express.json(), async (req, res) => {
-  const { pdfPath, expNro, jurisdiccion, cedulaId, pdfNombre } = req.body;
-  if (!pdfPath || !expNro) {
-    return res.status(400).json({ error: 'pdfPath y expNro son requeridos' });
+  const { pdfPath, pdfUrl, expNro, jurisdiccion, cedulaId, pdfNombre } = req.body;
+  if (!expNro || (!pdfPath && !pdfUrl)) {
+    return res.status(400).json({ error: 'expNro y pdfPath o pdfUrl son requeridos' });
   }
   try {
-    const resultado = await cargarEnPjn({ pdfPath, expNro, jurisdiccion, pdfNombre, cedulaId });
+    const resultado = await cargarEnPjn({ pdfPath, pdfUrl, expNro, jurisdiccion, pdfNombre, cedulaId });
     res.json(resultado);
   } catch (err) {
     console.error('[/cargar-pjn]', err.message);
